@@ -1,0 +1,10 @@
+{
+  "name": "sosboard",
+  "version": "2.1.0",
+  "description": "SOSBOARD - Intelligent Dashboard (Frontend)",
+  "private": true,
+  "scripts": {
+    "dev": "python -m http.server 8000",
+    "build": "echo 'Static site - no build needed'"
+  }
+}
