@@ -2,8 +2,7 @@
 <html>
 
 <head>
-  <base target="_top">
-  
+    
   <script src="https://cdn.tailwindcss.com"></script>
 
   
@@ -92,7 +91,7 @@
     // Extract Instagram post ID from URL
     const extractInstagramPostId = (url) => {
       if (!url || !url.includes('instagram.com')) return null;
-      const match = url.match(/instagram\.com/p/([A-Za-z0-9_-]+)/) || url.match(/instagram\.com/reel/([A-Za-z0-9_-]+)/);
+      const match = url.match(/instagram\.com\/p\/([A-Za-z0-9_-]+)/) || url.match(/instagram\.com\/reel\/([A-Za-z0-9_-]+)/);
       return match ? match[1] : null;
     };
 
@@ -121,7 +120,7 @@
     const getInstagramEmbedUrl = (url) => {
       if (!url || !url.includes('instagram.com')) return null;
       // Match Instagram post URL patterns
-      const match = url.match(/instagram\.com/p/([A-Za-z0-9_-]+)/) || url.match(/instagram\.com/reel/([A-Za-z0-9_-]+)/);
+      const match = url.match(/instagram\.com\/p\/([A-Za-z0-9_-]+)/) || url.match(/instagram\.com\/reel\/([A-Za-z0-9_-]+)/);
       if (match && match[1]) {
         return `https://www.instagram.com/p/${match[1]}/embed/`;
       }
