@@ -355,12 +355,6 @@
         });
       }, []);
 
-      if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-900">
-          <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
-        </div>
-      );
-
       const avgReach = useMemo(() => {
         if (!data || data.length === 0) return 0;
         return data.reduce((s,w)=>s+(w.metrics?.reach||0),0)/data.length;
@@ -370,6 +364,12 @@
         if (!data || data.length === 0) return 0;
         return data.reduce((s,w)=>s+(w.metrics?.views||0),0)/data.length;
       }, [data]);
+
+      if (loading) return (
+        <div className="min-h-screen flex items-center justify-center bg-slate-900">
+          <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      );
 
       return (
         <div className={`min-h-screen transition-colors duration-500 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
