@@ -39,6 +39,24 @@
   </style>
 </head>
 <body>
+  <!-- Global Error Handler to display any critical errors visually instead of a blank white screen -->
+  <script>
+    window.onerror = function(message, source, lineno, colno, error) {
+      document.body.innerHTML += '<div style="color:red; background:white; padding:20px; font-family:monospace; position:absolute; top:0; left:0; z-index:99999; width:100%; border-bottom:2px solid red;">' + 
+        '<h3>Global Error</h3>' +
+        '<p><strong>Message:</strong> ' + message + '</p>' +
+        '<p><strong>Source:</strong> ' + source + ':' + lineno + ':' + colno + '</p>' +
+        '<p><strong>Stack:</strong> ' + (error && error.stack ? error.stack.replace(/\n/g, '<br>') : 'N/A') + '</p>' +
+        '</div>';
+    };
+    window.addEventListener('unhandledrejection', function(event) {
+      document.body.innerHTML += '<div style="color:red; background:white; padding:20px; font-family:monospace; position:absolute; top:0; left:0; z-index:99999; width:100%; border-bottom:2px solid red;">' + 
+        '<h3>Unhandled Promise Rejection</h3>' +
+        '<p><strong>Reason:</strong> ' + (event.reason ? (event.reason.stack || event.reason) : 'N/A') + '</p>' +
+        '</div>';
+    });
+  </script>
+
   <div id="root"></div>
 
   <script type="text/babel">
@@ -329,9 +347,11 @@
           setLoading(false);
           
           // Generate AI insight
-          callBackend('generateAIInsight', res).then(ins => {
-            if (ins && ins.success) setInsight(ins.data);
-          });
+          if (res && res.length > 0) {
+            callBackend('generateAIInsight', res).then(ins => {
+              if (ins && ins.success) setInsight(ins.data);
+            });
+          }
         });
       }, []);
 
@@ -403,7 +423,12 @@
       );
     }
 
-    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    const rootElement = document.getElementById('root');
+    if (ReactDOM.createRoot) {
+      ReactDOM.createRoot(rootElement).render(<App />);
+    } else {
+      ReactDOM.render(<App />, rootElement);
+    }
   </script>
 
   <script>

@@ -173,7 +173,39 @@ function saveWeeklyData(jsonData) {
 // --- AI OPERATIONS (Gemini) ---
 
 function getGeminiKey() {
-  return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || 'AIzaSyBAD-38belGvE3z46uLelGP6oGD7bLwMnw';
+  return PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY') || '';
+}
+
+function doPost(e) {
+  try {
+    const payload = JSON.parse(e.postData.contents);
+    const action = payload.action;
+    const data = payload.data;
+    let result = {};
+    
+    switch(action) {
+      case 'getWeeklyData':
+        result = getWeeklyData();
+        break;
+      case 'saveWeeklyData':
+        result = saveWeeklyData(data);
+        break;
+      case 'generateAIInsight':
+        result = generateAIInsight(data);
+        break;
+      case 'getContentLibrary':
+        result = getContentLibrary();
+        break;
+      default:
+        result = { error: 'Unknown action' };
+    }
+    
+    return ContentService.createTextOutput(JSON.stringify(result))
+      .setMimeType(ContentService.MimeType.JSON);
+  } catch (error) {
+    return ContentService.createTextOutput(JSON.stringify({ error: error.toString() }))
+      .setMimeType(ContentService.MimeType.JSON);
+  }
 }
 
 function generateAIInsight(weekDataArray) {
