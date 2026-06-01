@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>SOSBOARD v2.1 - Intelligent Dashboard</title>
+  <title>SOSBOARD - Social Media Analytics Dashboard</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   
   <!-- EXTERNAL LIBS -->
@@ -10,13 +10,12 @@
   <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
   <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://unpkg.com/lucide@latest"></script>
   <script src="https://unpkg.com/recharts/umd/Recharts.js"></script>
 
   <!-- GOOGLE FONTS -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:ital,wght@0,200..800;1,200..800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
 
   <style>
     body {
@@ -25,52 +24,31 @@
       padding: 0;
       overflow-x: hidden;
     }
-    .card-gradient {
-      background: linear-gradient(135deg, #10b981 0%, #3b82f6 100%);
-    }
-    .animate-fade-in { animation: fadeIn 0.5s ease-out; }
+    .animate-fade-in { animation: fadeIn 0.4s ease-out; }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     
-    /* Custom Scrollbar */
     ::-webkit-scrollbar { width: 8px; }
-    ::-webkit-scrollbar-track { background: #0f172a; }
-    ::-webkit-scrollbar-thumb { background: #1e293b; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: #334155; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    .dark ::-webkit-scrollbar-thumb { background: #475569; }
   </style>
 </head>
 <body>
-  <!-- Global Error Handler to display any critical errors visually instead of a blank white screen -->
+  <!-- Global Error Handler -->
   <script>
     window.onerror = function(message, source, lineno, colno, error) {
       document.body.innerHTML += '<div style="color:red; background:white; padding:20px; font-family:monospace; position:absolute; top:0; left:0; z-index:99999; width:100%; border-bottom:2px solid red;">' + 
-        '<h3>Global Error</h3>' +
-        '<p><strong>Message:</strong> ' + message + '</p>' +
-        '<p><strong>Source:</strong> ' + source + ':' + lineno + ':' + colno + '</p>' +
-        '<p><strong>Stack:</strong> ' + (error && error.stack ? error.stack.replace(/\n/g, '<br>') : 'N/A') + '</p>' +
-        '</div>';
+        '<h3>Global Error</h3><p>' + message + '</p></div>';
     };
-    window.addEventListener('unhandledrejection', function(event) {
-      document.body.innerHTML += '<div style="color:red; background:white; padding:20px; font-family:monospace; position:absolute; top:0; left:0; z-index:99999; width:100%; border-bottom:2px solid red;">' + 
-        '<h3>Unhandled Promise Rejection</h3>' +
-        '<p><strong>Reason:</strong> ' + (event.reason ? (event.reason.stack || event.reason) : 'N/A') + '</p>' +
-        '</div>';
-    });
   </script>
 
   <div id="root"></div>
 
   <script type="text/babel">
-    const { useState, useMemo, useEffect, useCallback, useRef } = React;
+    const { useState, useMemo, useEffect } = React;
+    const { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip: RechartsTooltip, Legend, ResponsiveContainer } = window.Recharts || {};
 
-    // --- CONFIGURATION ---
     const GAS_API_URL = "https://script.google.com/macros/s/AKfycbzivHMW3lLbLWGP-5dSeV27kdSdx1s_8iJzQbBSvEqpYkQtL0UEKK3ezxZb5mQvYpYC_A/exec";
-
-    // --- SAFE LIBRARY ACCESS ---
-    const Recharts = window.Recharts || {};
-    const {
-      LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
-      AreaChart, Area, BarChart, Bar, Cell, PieChart, Pie
-    } = Recharts;
 
     // --- UTILS ---
     const formatNumber = (num) => {
@@ -97,87 +75,102 @@
       return { toasts, addToast, removeToast };
     };
 
-    // --- BACKEND API CALL ---
     const callBackend = async (action, data = {}) => {
       try {
         const response = await fetch(GAS_API_URL, {
           method: "POST",
-          headers: {
-            "Content-Type": "text/plain;charset=utf-8",
-          },
+          headers: { "Content-Type": "text/plain;charset=utf-8" },
           body: JSON.stringify({ action, data })
         });
         return await response.json();
       } catch (err) {
-        console.error("API Error:", err);
         return { error: err.message };
       }
     };
 
     // --- COMPONENTS ---
-
     const Toast = ({ toasts, removeToast }) => (
       <div className="fixed bottom-6 right-6 z-[9999] flex flex-col gap-2">
         {toasts.map(t => (
-          <div key={t.id} className={`p-4 rounded-2xl min-w-[300px] flex items-center gap-3 text-white shadow-2xl ${
-            t.type==='success'?'bg-teal-600': t.type==='error'?'bg-red-600': t.type==='warning'?'bg-amber-600':'bg-blue-600'
+          <div key={t.id} className={`p-4 rounded-xl min-w-[250px] flex items-center gap-3 text-white shadow-xl ${
+            t.type==='success'?'bg-emerald-600': t.type==='error'?'bg-red-600': 'bg-blue-600'
           }`}>
-            <span className="text-xl">{t.type==='success'?'✅':t.type==='error'?'❌':t.type==='warning'?'⚠️':'ℹ️'}</span>
-            <span className="flex-1 text-sm font-bold">{t.message}</span>
+            <span className="flex-1 text-sm font-semibold">{t.message}</span>
             <button onClick={() => removeToast(t.id)} className="opacity-50 hover:opacity-100">✕</button>
           </div>
         ))}
       </div>
     );
 
-    const MetricCard = ({ title, value, subValue, emoji, color, isDark }) => (
-      <div className={`p-6 rounded-3xl border transition-all hover:scale-[1.02] ${isDark ? 'bg-slate-800/50 border-slate-700 shadow-xl' : 'bg-white border-slate-100 shadow-md'}`}>
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <p className="text-xs font-bold uppercase tracking-wider text-slate-500">{title}</p>
-            <h3 className="text-3xl font-black mt-1">{value}</h3>
-          </div>
-          <div className={`p-3 rounded-2xl text-2xl ${isDark ? 'bg-slate-700' : 'bg-slate-50'}`}>{emoji}</div>
+    const InfoTooltip = ({ text, isDark }) => (
+      <div className="group relative inline-block ml-2 cursor-help align-middle">
+        <span className={`text-base ${isDark ? 'text-teal-400 hover:text-orange-400' : 'text-blue-500 hover:text-blue-700'}`}>ℹ️</span>
+        <div className={`invisible group-hover:visible absolute z-50 w-64 p-3 mt-1 left-1/2 -translate-x-1/2 text-xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none border leading-relaxed ${isDark ? 'bg-slate-800 text-slate-200 border-slate-600' : 'bg-white text-slate-700 border-slate-200'}`}>
+          {text}
         </div>
-        <p className="text-xs font-medium opacity-60">{subValue}</p>
       </div>
     );
+
+    const GoalWidget = ({ label, current, target, isDark }) => {
+      const pct = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+      return (
+        <div className={`mb-4 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>
+          <div className="flex justify-between text-xs font-bold mb-1">
+            <span>{label}</span>
+            <span className={isDark ? 'text-teal-400' : 'text-blue-600'}>Target: {target}%</span>
+          </div>
+          <div className={`h-3 rounded-full overflow-hidden ${isDark ? 'bg-slate-700' : 'bg-slate-200'}`}>
+            <div style={{ width: `${pct}%` }} className="h-full rounded-full transition-all duration-1000 ease-out bg-gradient-to-r from-blue-500 to-teal-400"></div>
+          </div>
+          <div className="text-[10px] text-right mt-1 opacity-70">Current: {current}%</div>
+        </div>
+      );
+    };
 
     const ContentCard = ({ item, type, isDark }) => {
       if (!item) return null;
       const content = type === 'winning' ? item.winningContent : item.losingContent;
+      if (!content) return null;
       const isWin = type === 'winning';
-      const thumb = getInstagramThumbnailUrl(content.link);
+      const thumb = content.thumbnail || getInstagramThumbnailUrl(content.link);
       const [imgErr, setImgErr] = useState(false);
 
       return (
-        <div className={`rounded-3xl border overflow-hidden flex flex-col group ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
-          <div className="relative h-64 bg-slate-700 overflow-hidden">
+        <div className={`rounded-2xl border overflow-hidden flex flex-col group ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200 shadow-sm'}`}>
+          <div className="relative h-64 bg-slate-200 dark:bg-slate-700 overflow-hidden">
             {thumb && !imgErr ? (
-              <img src={thumb} className="w-full h-full object-cover transition-transform group-hover:scale-110" onError={() => setImgErr(true)} />
+              <img src={thumb} className="w-full h-full object-cover" onError={() => setImgErr(true)} />
             ) : (
-              <div className="w-full h-full flex items-center justify-center text-4xl bg-slate-800">📸</div>
+              <div className="w-full h-full flex flex-col items-center justify-center">
+                <span className="text-4xl mb-2">📷</span>
+                <span className="text-xs font-semibold opacity-70">{imgErr ? "Instagram Preview Blocked" : "No Preview Available"}</span>
+              </div>
             )}
-            <div className="absolute top-4 left-4">
-              <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase ${isWin ? 'bg-teal-500 text-white' : 'bg-red-500 text-white'}`}>
-                {isWin ? '🏆 Winning' : '📉 Losing'}
+            <div className="absolute top-3 left-3">
+              <span className={`px-3 py-1 rounded-lg text-xs font-bold uppercase ${isWin ? 'bg-teal-500 text-white' : 'bg-red-500 text-white'}`}>
+                {isWin ? '👑 Winning Content' : '📉 Losing Content'}
               </span>
             </div>
+            {content.link && (
+              <a href={content.link} target="_blank" className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                <span className="bg-white text-black px-4 py-2 rounded-full font-bold text-sm">View Original</span>
+              </a>
+            )}
           </div>
-          <div className="p-6 flex-1">
-            <h4 className="font-black text-lg mb-4 line-clamp-2">{content.title || 'Untitled Content'}</h4>
-            <div className="space-y-3">
-              <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
-                <p className="text-[10px] font-black text-blue-500 uppercase">WHAT</p>
-                <p className="text-xs opacity-80">{content.analysis.what}</p>
+          <div className="p-5 flex-1 flex flex-col">
+            <h4 className={`font-bold text-lg mb-4 ${isDark ? 'text-white' : 'text-slate-900'}`}>{content.title || 'Untitled Content'}</h4>
+            <div className={`mt-auto space-y-3 p-4 rounded-xl border ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+              <div className="grid grid-cols-[50px_1fr] gap-2">
+                <span className="font-bold text-blue-500 text-xs uppercase">WHAT</span>
+                <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{content.analysis?.what || '-'}</span>
               </div>
-              <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
-                <p className="text-[10px] font-black text-orange-500 uppercase">WHY</p>
-                <p className="text-xs opacity-80">{content.analysis.why}</p>
+              <div className="grid grid-cols-[50px_1fr] gap-2">
+                <span className="font-bold text-orange-500 text-xs uppercase">WHY</span>
+                <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{content.analysis?.why || '-'}</span>
               </div>
-              <div className={`p-3 rounded-xl ${isDark ? 'bg-slate-900/50' : 'bg-slate-50'}`}>
-                <p className="text-[10px] font-black text-teal-500 uppercase">TODO</p>
-                <p className="text-xs opacity-80">{content.analysis.todo}</p>
+              <div className="grid grid-cols-[50px_1fr] gap-2">
+                <span className="font-bold text-teal-500 text-xs uppercase">TODO</span>
+                <span className={`text-xs ${isDark ? 'text-slate-300' : 'text-slate-600'}`}>{content.analysis?.todo || '-'}</span>
               </div>
             </div>
           </div>
@@ -185,86 +178,279 @@
       );
     };
 
-    const AIInsightBox = ({ insight, isDark }) => {
-      if (!insight) return null;
+    // --- VIEWS ---
+    
+    const DashboardView = ({ data, isDark }) => {
+      const [selectedMonth, setSelectedMonth] = useState('');
+      
+      const months = useMemo(() => {
+        const set = new Set(data.map(d => {
+          const date = new Date(d.startDate);
+          return date.toLocaleString('default', { month: 'long', year: 'numeric' });
+        }));
+        return Array.from(set);
+      }, [data]);
+
+      useEffect(() => {
+        if (months.length > 0 && !selectedMonth) setSelectedMonth(months[months.length - 1]);
+      }, [months, selectedMonth]);
+
+      const monthData = useMemo(() => {
+        return data.filter(d => {
+          const m = new Date(d.startDate).toLocaleString('default', { month: 'long', year: 'numeric' });
+          return m === selectedMonth;
+        });
+      }, [data, selectedMonth]);
+
+      // Calculate Metrics for selected month
+      const { avgReach, avgEngagement, reachGrowth, totalReach, avgFollowersPct, engagementRate } = useMemo(() => {
+        if (!monthData.length) return { avgReach: 0, avgEngagement: 0, reachGrowth: 0, totalReach: 0, avgFollowersPct: 0, engagementRate: 0 };
+        const tr = monthData.reduce((s, w) => s + (w.metrics?.reach || 0), 0);
+        const te = monthData.reduce((s, w) => s + (w.metrics?.engagement || 0), 0);
+        const wfp = monthData.reduce((s, w) => s + ((w.metrics?.reach || 0) * (w.metrics?.followersPct || 0)), 0);
+        
+        return {
+          totalReach: tr,
+          avgReach: tr / monthData.length,
+          avgEngagement: te / monthData.length,
+          avgFollowersPct: tr > 0 ? (wfp / tr).toFixed(1) : 0,
+          engagementRate: tr > 0 ? ((te / tr) * 100).toFixed(1) : 0
+        };
+      }, [monthData]);
+
+      // We assume Target metrics (can be made dynamic if saved in backend, but for now hardcoded dummy targets as they were in original)
+      const targets = { reachPct: 15, engagementPct: 5 };
+
       return (
-        <div className={`p-8 rounded-3xl border ${isDark ? 'bg-indigo-900/20 border-indigo-500/30' : 'bg-blue-50 border-blue-200'}`}>
-          <div className="flex items-center gap-3 mb-6">
-            <span className="text-3xl">✨</span>
-            <h3 className="text-2xl font-black">AI Performance <span className="text-indigo-500">Insights</span></h3>
-          </div>
-          <p className="text-lg leading-relaxed italic mb-8 opacity-90">"{insight.summary}"</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="space-y-8 animate-fade-in">
+          <div className="flex justify-between items-end flex-wrap gap-4">
             <div>
-              <h4 className="font-bold text-teal-500 mb-2">💎 Winning Patterns</h4>
-              <p className="text-sm opacity-80">{insight.win_pattern}</p>
+              <h2 className="text-3xl font-bold">Performance <span className="text-teal-500">Dashboard</span></h2>
+              <p className={`text-sm mt-1 ${isDark ? 'text-slate-400' : 'text-slate-600'}`}>Visualize your core metrics & targets for the selected month.</p>
             </div>
             <div>
-              <h4 className="font-bold text-red-500 mb-2">🚫 Avoid These</h4>
-              <p className="text-sm opacity-80">{insight.avoid}</p>
+              <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)} className={`p-2 px-4 rounded-lg text-sm font-semibold border outline-none ${isDark ? 'bg-slate-800 border-slate-700 text-white' : 'bg-white border-slate-300 text-slate-900'}`}>
+                {months.map(m => <option key={m} value={m}>{m}</option>)}
+              </select>
             </div>
           </div>
-          <div className="mt-8 p-6 rounded-2xl bg-indigo-500/10 border border-indigo-500/20">
-            <h4 className="font-bold text-indigo-400 mb-4">💡 Next Week Recommendations</h4>
-            <ul className="space-y-2">
-              {(insight.recommendations||[]).map((r,i) => <li key={i} className="text-sm flex gap-2"><span>👉</span>{r}</li>)}
-            </ul>
+
+          {/* Targets & Graph Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+              <h3 className="text-sm font-bold uppercase tracking-wider mb-6 flex items-center">
+                🎯 Targets <InfoTooltip text="Goals set for the selected month compared to actual performance." isDark={isDark} />
+              </h3>
+              <GoalWidget label="Reach Goal" current={parseFloat(avgFollowersPct)} target={targets.reachPct} isDark={isDark} />
+              <GoalWidget label="Engagement Rate Goal" current={parseFloat(engagementRate)} target={targets.engagementPct} isDark={isDark} />
+              
+              <div className="mt-8 pt-6 border-t border-slate-200 dark:border-slate-700">
+                <div className="flex justify-between mb-4">
+                  <span className="text-xs font-bold uppercase">Total Reach</span>
+                  <span className="text-lg font-black">{formatNumber(totalReach)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs font-bold uppercase">Avg Engagement</span>
+                  <span className="text-lg font-black">{formatNumber(avgEngagement)}</span>
+                </div>
+              </div>
+            </div>
+
+            <div className={`p-6 rounded-2xl border lg:col-span-2 ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+              <h3 className="text-sm font-bold uppercase tracking-wider mb-6 flex items-center">
+                📈 Weekly Trends <InfoTooltip text="Visual breakdown of Reach and Views for each week in the selected month." isDark={isDark} />
+              </h3>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={monthData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#e2e8f0'} />
+                    <XAxis dataKey="label" stroke={isDark ? '#94a3b8' : '#64748b'} fontSize={12} />
+                    <YAxis stroke={isDark ? '#94a3b8' : '#64748b'} fontSize={12} tickFormatter={formatNumber} />
+                    <RechartsTooltip contentStyle={{ backgroundColor: isDark ? '#1e293b' : '#fff', borderRadius: '8px', border: 'none' }} />
+                    <Legend />
+                    <Bar dataKey="metrics.reach" name="Reach" fill="#3b82f6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="metrics.views" name="Views" fill="#10b981" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+
+          {/* Content Containers */}
+          {monthData.length > 0 && (
+            <div>
+               <h3 className="text-xl font-bold mb-6 flex items-center">
+                  Content Highlight <InfoTooltip text="The best and worst performing content of the latest week in this month." isDark={isDark} />
+               </h3>
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  <ContentCard item={monthData[monthData.length - 1]} type="winning" isDark={isDark} />
+                  <ContentCard item={monthData[monthData.length - 1]} type="losing" isDark={isDark} />
+               </div>
+            </div>
+          )}
+        </div>
+      );
+    };
+
+    const ComparisonView = ({ data, isDark }) => {
+      const [weekA, setWeekA] = useState(data.length > 0 ? data[data.length-1].id : '');
+      const [weekB, setWeekB] = useState(data.length > 1 ? data[data.length-2].id : '');
+
+      const itemA = data.find(d => d.id === weekA);
+      const itemB = data.find(d => d.id === weekB);
+
+      const renderRow = (label, valA, valB, isPct = false) => {
+        if (valA === undefined || valB === undefined) return null;
+        const diff = valA - valB;
+        const isPos = diff >= 0;
+        return (
+          <div className={`p-4 flex items-center justify-between border-b ${isDark ? 'border-slate-700' : 'border-slate-100'}`}>
+            <span className={`font-semibold text-sm w-1/3 ${isDark ? 'text-slate-300' : 'text-slate-700'}`}>{label}</span>
+            <span className="font-bold w-1/4 text-center">{isPct ? `${valA}%` : formatNumber(valA)}</span>
+            <span className="font-bold w-1/4 text-center">{isPct ? `${valB}%` : formatNumber(valB)}</span>
+            <span className={`font-bold w-1/4 text-right text-sm ${isPos ? 'text-emerald-500' : 'text-red-500'}`}>
+              {isPos ? '+' : ''}{isPct ? diff.toFixed(1)+'%' : formatNumber(diff)}
+            </span>
+          </div>
+        );
+      };
+
+      return (
+        <div className="animate-fade-in space-y-8">
+          <div>
+            <h2 className="text-3xl font-bold flex items-center">
+              ⚖️ Comparison <InfoTooltip text="Compare metrics between any two specific weeks." isDark={isDark} />
+            </h2>
+          </div>
+          <div className="flex gap-4 mb-6">
+            <select value={weekA} onChange={e=>setWeekA(e.target.value)} className={`flex-1 p-3 rounded-xl font-semibold outline-none ${isDark?'bg-slate-800 text-white':'bg-white border'}`}>
+              {data.map(d => <option key={d.id} value={d.id}>{d.label} ({d.dateRange})</option>)}
+            </select>
+            <div className="flex items-center text-xl font-bold opacity-50">VS</div>
+            <select value={weekB} onChange={e=>setWeekB(e.target.value)} className={`flex-1 p-3 rounded-xl font-semibold outline-none ${isDark?'bg-slate-800 text-white':'bg-white border'}`}>
+              {data.map(d => <option key={d.id} value={d.id}>{d.label} ({d.dateRange})</option>)}
+            </select>
+          </div>
+          
+          <div className={`rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <div className={`p-4 flex items-center justify-between border-b text-xs font-bold uppercase ${isDark ? 'bg-slate-900/50 border-slate-700' : 'bg-slate-50 border-slate-100'}`}>
+              <span className="w-1/3">Metric</span>
+              <span className="w-1/4 text-center text-blue-500">Selection A</span>
+              <span className="w-1/4 text-center text-orange-500">Selection B</span>
+              <span className="w-1/4 text-right">Difference (A - B)</span>
+            </div>
+            {itemA && itemB && (
+              <div>
+                {renderRow("Total Reach", itemA.metrics.reach, itemB.metrics.reach)}
+                {renderRow("Engagement", itemA.metrics.engagement, itemB.metrics.engagement)}
+                {renderRow("Views", itemA.metrics.views, itemB.metrics.views)}
+                {renderRow("Profile Activity", itemA.metrics.profileActivity, itemB.metrics.profileActivity)}
+                {renderRow("Followers %", itemA.metrics.followersPct, itemB.metrics.followersPct, true)}
+                {renderRow("Non-Followers %", itemA.metrics.nonFollowersPct, itemB.metrics.nonFollowersPct, true)}
+              </div>
+            )}
           </div>
         </div>
       );
     };
 
-    // --- SUB PAGES ---
+    const ExportView = ({ data, isDark }) => {
+      const generateCSV = () => {
+        if (!data || !data.length) return '';
+        const headers = ['Week ID', 'Label', 'Date Range', 'Reach', 'Engagement', 'Views', 'Profile Activity', 'Followers %', 'Non-Followers %', 'Winning Content', 'Losing Content'];
+        const rows = data.map(row => [
+          row.id, row.label, row.dateRange,
+          row.metrics.reach, row.metrics.engagement, row.metrics.views, row.metrics.profileActivity,
+          row.metrics.followersPct, row.metrics.nonFollowersPct,
+          row.winningContent?.title || 'N/A', row.losingContent?.title || 'N/A'
+        ]);
+        return [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
+      };
 
-    const BackendCMS = ({ data, isDark, onBack, toast }) => {
+      const handleDownload = () => {
+        const csv = generateCSV();
+        const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = "sosboard_data.csv";
+        link.style.display = "none";
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      };
+
+      return (
+        <div className="animate-fade-in space-y-8">
+          <div>
+            <h2 className="text-3xl font-bold flex items-center">
+              📥 Export Data <InfoTooltip text="Download your raw analytics data as a CSV file for Excel or Google Sheets." isDark={isDark} />
+            </h2>
+          </div>
+          <div className={`p-8 rounded-2xl border text-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <p className="mb-6 opacity-80">Export all stored weekly data into a standard CSV format.</p>
+            <button onClick={handleDownload} className="px-8 py-4 bg-teal-500 hover:bg-teal-600 text-white font-bold rounded-xl shadow-lg transition-all">
+              Download CSV
+            </button>
+          </div>
+        </div>
+      );
+    };
+
+    const GrowthView = ({ data, isDark }) => {
+      return (
+        <div className="animate-fade-in space-y-8">
+          <div>
+            <h2 className="text-3xl font-bold flex items-center">
+              🌱 Growth <InfoTooltip text="Track long-term growth of your primary metrics (Reach and Engagement) across all recorded weeks." isDark={isDark} />
+            </h2>
+          </div>
+          <div className={`p-6 rounded-2xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+            <h3 className="font-bold uppercase text-xs mb-6 opacity-70">Reach & Engagement Over Time</h3>
+            <div className="h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={data}>
+                  <CartesianGrid strokeDasharray="3 3" stroke={isDark ? '#334155' : '#e2e8f0'} />
+                  <XAxis dataKey="label" stroke={isDark ? '#94a3b8' : '#64748b'} fontSize={10} />
+                  <YAxis stroke={isDark ? '#94a3b8' : '#64748b'} fontSize={10} tickFormatter={formatNumber} />
+                  <RechartsTooltip contentStyle={{ backgroundColor: isDark ? '#1e293b' : '#fff', borderRadius: '8px', border: 'none' }} />
+                  <Legend />
+                  <Line type="monotone" dataKey="metrics.reach" name="Total Reach" stroke="#3b82f6" strokeWidth={3} dot={{r: 4}} activeDot={{r: 6}} />
+                  <Line type="monotone" dataKey="metrics.engagement" name="Total Engagement" stroke="#10b981" strokeWidth={3} dot={{r: 4}} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const AdminView = ({ data, isDark, toast }) => {
       const handleSave = async () => {
-        toast('Saving data...', 'info');
+        toast('Saving data manually...', 'info');
         const res = await callBackend('saveWeeklyData', data);
         if(res.error) toast('Save failed: ' + res.error, 'error');
-        else toast('Saved successfully!', 'success');
+        else toast('Saved to Spreadsheet successfully!', 'success');
       };
+      
       return (
-        <div className="space-y-8">
+        <div className="animate-fade-in space-y-8">
           <div className="flex justify-between items-center">
-            <div className="flex items-center gap-4">
-              <button onClick={onBack} className="p-3 rounded-xl bg-slate-800 hover:bg-slate-700">⬅️</button>
-              <h2 className="text-3xl font-black">Content <span className="text-teal-500">Manager</span></h2>
-            </div>
-            <button onClick={handleSave} className="px-8 py-3 bg-teal-500 text-white font-black rounded-2xl hover:scale-105 transition">SAVE ALL</button>
+            <h2 className="text-3xl font-bold flex items-center">
+              ⚙️ Admin <InfoTooltip text="View current datasets and manually trigger a save action to the backend." isDark={isDark} />
+            </h2>
+            <button onClick={handleSave} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-md">
+              Save to Backend
+            </button>
           </div>
           <div className="grid gap-4">
             {data.map(w => (
-              <div key={w.id} className={`p-6 rounded-2xl border flex justify-between items-center ${isDark ? 'bg-slate-800/50 border-slate-700' : 'bg-white'}`}>
-                <div><p className="text-xs opacity-50">{w.dateRange}</p><h4 className="font-black text-xl">{w.label}</h4></div>
-                <button className="px-4 py-2 bg-indigo-500/20 text-indigo-400 font-bold rounded-lg">EDIT DATA</button>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-    };
-
-    const ContentLibraryPage = ({ isDark, onBack, toast }) => {
-      const [library, setLibrary] = useState([]);
-      useEffect(() => {
-        callBackend('getContentLibrary').then(res => {
-          if (res.success) setLibrary(res.data);
-        });
-      }, []);
-      return (
-        <div className="space-y-8">
-          <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-3 rounded-xl bg-slate-800 hover:bg-slate-700">⬅️</button>
-            <h2 className="text-3xl font-black">Smart <span className="text-teal-500">Library</span></h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {library.map((item, i) => (
-              <div key={i} className={`p-6 rounded-3xl border ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white shadow-sm'}`}>
-                <h4 className="font-black mb-4 h-12 line-clamp-2">{item.title}</h4>
-                <div className="flex flex-wrap gap-2 mb-4">
-                  {item.tags.map(t => <span key={t} className="text-[10px] font-bold px-2 py-1 bg-indigo-500/10 text-indigo-400 rounded-full">#{t}</span>)}
+              <div key={w.id} className={`p-4 rounded-xl border flex justify-between items-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white border-slate-200'}`}>
+                <div>
+                  <h4 className="font-bold">{w.label} <span className="text-xs opacity-50 font-normal">({w.dateRange})</span></h4>
                 </div>
-                <a href={item.link} target="_blank" className="text-xs font-bold text-blue-500">View Source ↗️</a>
+                <div className="text-xs font-semibold px-3 py-1 rounded bg-teal-500/20 text-teal-600 dark:text-teal-400">
+                  Read Only
+                </div>
               </div>
             ))}
           </div>
@@ -272,61 +458,11 @@
       );
     };
 
-    const ForecastHeatmapPage = ({ data, isDark, onBack }) => {
-      return (
-        <div className="space-y-8">
-          <div className="flex items-center gap-4">
-            <button onClick={onBack} className="p-3 rounded-xl bg-slate-800 hover:bg-slate-700">⬅️</button>
-            <h2 className="text-3xl font-black">🔮 Forecast & <span className="text-teal-500">Heatmap</span></h2>
-          </div>
-          <div className={`p-12 rounded-3xl border text-center ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white'}`}>
-             <p className="text-slate-500">Performance forecasting and optimal posting time visualization.</p>
-             <div className="mt-8 h-64 bg-slate-900/50 rounded-2xl flex items-center justify-center font-black opacity-20">CHART AREA</div>
-          </div>
-        </div>
-      );
-    };
-
-    const ContentAuditorModal = ({ isDark, onClose, toast }) => (
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-sm">
-        <div className={`w-full max-w-xl p-8 rounded-3xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white shadow-2xl'}`}>
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-black">🤖 AI Content Auditor</h3>
-            <button onClick={onClose}>✕</button>
-          </div>
-          <div className="space-y-4">
-            <input placeholder="Content Hook / Title" className="w-full p-4 rounded-xl bg-slate-800 border border-slate-700 outline-none" />
-            <textarea placeholder="Caption Draft" rows="4" className="w-full p-4 rounded-xl bg-slate-800 border border-slate-700 outline-none"></textarea>
-            <button className="w-full py-4 bg-gradient-to-r from-teal-500 to-blue-600 rounded-xl font-black">✨ AUDIT NOW</button>
-          </div>
-        </div>
-      </div>
-    );
-
-    const FloatingAgent = ({ isDark }) => {
-      const [open, setOpen] = useState(false);
-      return (
-        <div className="fixed bottom-8 right-8 z-50">
-          {open && (
-            <div className={`mb-4 w-80 h-96 rounded-2xl border shadow-2xl flex flex-col ${isDark ? 'bg-slate-800 border-slate-700' : 'bg-white'}`}>
-              <div className="p-4 bg-indigo-600 text-white font-black flex justify-between"><span>🤖 SOSBOARD AI</span><button onClick={()=>setOpen(false)}>▼</button></div>
-              <div className="flex-1 p-4 text-xs opacity-50 italic">Agent ready to help...</div>
-              <div className="p-3 border-t border-slate-700"><input placeholder="Ask me anything..." className="w-full bg-transparent outline-none" /></div>
-            </div>
-          )}
-          <button onClick={()=>setOpen(true)} className="w-14 h-14 bg-indigo-600 rounded-full flex items-center justify-center text-2xl shadow-xl hover:scale-110 transition">💬</button>
-        </div>
-      );
-    };
-
-    // --- APP ---
-
+    // --- APP WRAPPER ---
     function App() {
       const [isDark, setIsDark] = useState(true);
       const [view, setView] = useState('dashboard');
-      const [showAuditor, setShowAuditor] = useState(false);
       const [data, setData] = useState([]);
-      const [insight, setInsight] = useState(null);
       const [loading, setLoading] = useState(true);
       const { toasts, addToast, removeToast } = useToast();
 
@@ -345,79 +481,63 @@
           }
           setData(res || []);
           setLoading(false);
-          
-          // Generate AI insight
-          if (res && res.length > 0) {
-            callBackend('generateAIInsight', res).then(ins => {
-              if (ins && ins.success) setInsight(ins.data);
-            });
-          }
         });
       }, []);
 
-      const avgReach = useMemo(() => {
-        if (!data || data.length === 0) return 0;
-        return data.reduce((s,w)=>s+(w.metrics?.reach||0),0)/data.length;
-      }, [data]);
-
-      const avgViews = useMemo(() => {
-        if (!data || data.length === 0) return 0;
-        return data.reduce((s,w)=>s+(w.metrics?.views||0),0)/data.length;
-      }, [data]);
+      const NavButton = ({ target, label }) => (
+        <button 
+          onClick={() => setView(target)} 
+          className={`text-xs font-bold uppercase tracking-wider px-3 py-2 rounded-lg transition-colors ${view === target ? (isDark ? 'bg-slate-800 text-teal-400' : 'bg-slate-100 text-teal-600') : (isDark ? 'text-slate-400 hover:text-slate-200' : 'text-slate-500 hover:text-slate-800')}`}
+        >
+          {label}
+        </button>
+      );
 
       if (loading) return (
-        <div className="min-h-screen flex items-center justify-center bg-slate-900">
+        <div className={`min-h-screen flex items-center justify-center ${isDark ? 'bg-slate-900' : 'bg-slate-50'}`}>
           <div className="w-12 h-12 border-4 border-teal-500 border-t-transparent rounded-full animate-spin"></div>
         </div>
       );
 
       return (
-        <div className={`min-h-screen transition-colors duration-500 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
-          <nav className={`sticky top-0 z-50 backdrop-blur-xl border-b ${isDark ? 'bg-slate-900/80 border-slate-800' : 'bg-white/80 border-slate-200'}`}>
-            <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
-              <div className="flex items-center gap-4 cursor-pointer" onClick={() => setView('dashboard')}>
-                <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-blue-600 rounded-2xl flex items-center justify-center"><span className="text-white font-black text-2xl">S</span></div>
-                <h1 className="font-black text-xl">SOSBOARD <span className="text-teal-500 text-xs">PRO</span></h1>
+        <div className={`min-h-screen flex flex-col transition-colors duration-500 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+          
+          <nav className={`sticky top-0 z-50 backdrop-blur-xl border-b ${isDark ? 'bg-slate-900/90 border-slate-800' : 'bg-white/90 border-slate-200'}`}>
+            <div className="max-w-6xl mx-auto px-6 h-20 flex items-center justify-between">
+              <div className="flex flex-col cursor-pointer" onClick={() => setView('dashboard')}>
+                <h1 className="font-black text-2xl tracking-tight text-teal-500">SOSBOARD</h1>
+                <span className={`text-[9px] font-bold uppercase tracking-widest ${isDark ? 'text-slate-400' : 'text-slate-500'}`}>social media analytics dashboard</span>
               </div>
-              <div className="flex items-center gap-8">
-                <button onClick={()=>setView('dashboard')} className={`text-[10px] font-black tracking-widest uppercase ${view==='dashboard'?'text-teal-400':''}`}>Dashboard</button>
-                <button onClick={()=>setView('library')} className={`text-[10px] font-black tracking-widest uppercase ${view==='library'?'text-teal-400':''}`}>Library</button>
-                <button onClick={()=>setView('forecast')} className={`text-[10px] font-black tracking-widest uppercase ${view==='forecast'?'text-teal-400':''}`}>Forecast</button>
-                <button onClick={()=>setView('cms')} className={`text-[10px] font-black tracking-widest uppercase ${view==='cms'?'text-teal-400':''}`}>Admin</button>
-                <button onClick={()=>setIsDark(!isDark)} className="p-3 bg-slate-800/50 rounded-xl">{isDark?'🌙':'☀️'}</button>
+              <div className="flex items-center gap-2">
+                <NavButton target="dashboard" label="Dashboard" />
+                <NavButton target="comparison" label="Comparison" />
+                <NavButton target="export" label="Export" />
+                <NavButton target="growth" label="Growth" />
+                <NavButton target="admin" label="Admin" />
+                <button onClick={()=>setIsDark(!isDark)} className="ml-4 p-2 rounded-full border border-transparent hover:border-slate-500/30 transition-all">
+                  {isDark ? '☀️' : '🌙'}
+                </button>
               </div>
             </div>
           </nav>
 
-          <main className="max-w-7xl mx-auto px-6 py-12">
-            {view === 'dashboard' && (
-              <div className="space-y-12 animate-fade-in">
-                <div className="flex justify-between items-end">
-                  <h2 className="text-4xl font-black">Performance <span className="text-teal-500">Overview</span></h2>
-                  <button onClick={() => setShowAuditor(true)} className="px-6 py-3 bg-indigo-600 text-white font-black rounded-2xl hover:scale-105 transition">🤖 AI Auditor</button>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                  <MetricCard title="Avg. Weekly Reach" value={formatNumber(avgReach)} emoji="🚀" color="blue" isDark={isDark} subValue="+12% vs last month" />
-                  <MetricCard title="Avg. Views" value={formatNumber(avgViews)} emoji="👁️" color="purple" isDark={isDark} subValue="Stabilized" />
-                  <MetricCard title="Engagement Rate" value="4.8%" emoji="💬" color="teal" isDark={isDark} subValue="Above benchmark" />
-                  <MetricCard title="System Status" value="Online" emoji="⚡" color="orange" isDark={isDark} subValue="v2.1 Stable" />
-                </div>
-                {insight && <AIInsightBox insight={insight} isDark={isDark} />}
-                {data.length > 0 && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                    <ContentCard item={data[data.length-1]} type="winning" isDark={isDark} />
-                    <ContentCard item={data[data.length-1]} type="losing" isDark={isDark} />
-                  </div>
-                )}
-              </div>
-            )}
-            {view === 'cms' && <BackendCMS data={data} isDark={isDark} onBack={()=>setView('dashboard')} toast={addToast} />}
-            {view === 'library' && <ContentLibraryPage isDark={isDark} onBack={()=>setView('dashboard')} toast={addToast} />}
-            {view === 'forecast' && <ForecastHeatmapPage data={data} isDark={isDark} onBack={()=>setView('dashboard')} />}
+          <main className="flex-1 max-w-6xl w-full mx-auto px-6 py-10">
+            {view === 'dashboard' && <DashboardView data={data} isDark={isDark} />}
+            {view === 'comparison' && <ComparisonView data={data} isDark={isDark} />}
+            {view === 'export' && <ExportView data={data} isDark={isDark} />}
+            {view === 'growth' && <GrowthView data={data} isDark={isDark} />}
+            {view === 'admin' && <AdminView data={data} isDark={isDark} toast={addToast} />}
           </main>
 
-          {showAuditor && <ContentAuditorModal isDark={isDark} onClose={() => setShowAuditor(false)} toast={addToast} />}
-          <FloatingAgent isDark={isDark} />
+          <footer className={`py-8 text-center border-t mt-auto ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
+            <p className="text-sm font-semibold">
+              Made by CMO JOY - 
+              <a href="http://instagram.com/biyoosh.i/" target="_blank" rel="noreferrer" className="text-teal-500 hover:text-teal-400 ml-1 transition-colors">
+                Muhammad Nurul Qolbi
+              </a>
+            </p>
+          </footer>
+
           <Toast toasts={toasts} removeToast={removeToast} />
         </div>
       );
@@ -429,12 +549,6 @@
     } else {
       ReactDOM.render(<App />, rootElement);
     }
-  </script>
-
-  <script>
-    window.addEventListener('load', () => {
-      if (window.lucide) window.lucide.createIcons();
-    });
   </script>
 </body>
 </html>
