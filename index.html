@@ -1793,9 +1793,156 @@ Data reverted. Please try again or use Refresh.");
 
 
 
+    // --- AI COMPONENTS ---
+    const ContentAuditorModal = ({ isDark, onClose }) => {
+      const [hook, setHook] = useState('');
+      const [caption, setCaption] = useState('');
+      const [isAuditing, setIsAuditing] = useState(false);
+      const [result, setResult] = useState(null);
+
+      const handleAudit = () => {
+        if (!hook || !caption) return alert("Please enter both hook and caption.");
+        setIsAuditing(true);
+        if (typeof google !== 'undefined' && google.script) {
+          google.script.run
+            .withSuccessHandler((res) => {
+              setIsAuditing(false);
+              if (res.success) setResult(res.data);
+              else alert("Audit Failed: " + res.error);
+            })
+            .withFailureHandler((err) => {
+              setIsAuditing(false);
+              alert("Error: " + err);
+            })
+            .auditContent(hook, caption);
+        } else {
+          setTimeout(() => {
+            setIsAuditing(false);
+            setResult({
+              score: 8,
+              feedback: "Looks good overall! (Demo Mode)",
+              hook_analysis: "The hook is catchy.",
+              caption_analysis: "Caption is engaging but needs a clearer CTA.",
+              improvements: ["Add an emoji to the hook", "Make the CTA bolder"]
+            });
+          }, 1500);
+        }
+      };
+
+      return (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-slate-900/90 backdrop-blur-sm">
+          <div className={`w-full max-w-xl p-8 rounded-3xl border ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white shadow-2xl'}`}>
+            <div className="flex justify-between items-center mb-6">
+              <h3 className={`text-2xl font-black flex items-center gap-2 ${isDark ? 'text-white' : 'text-slate-900'}`}>🤖 AI Content Auditor</h3>
+              <button onClick={onClose} className={`text-xl font-bold ${isDark ? 'text-slate-400 hover:text-white' : 'text-slate-500 hover:text-slate-900'}`}>✕</button>
+            </div>
+            <div className="space-y-4">
+              <input value={hook} onChange={e=>setHook(e.target.value)} placeholder="Content Hook / Title" className={`w-full p-4 rounded-xl border outline-none text-sm font-bold ${isDark ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'}`} />
+              <textarea value={caption} onChange={e=>setCaption(e.target.value)} placeholder="Caption Draft" rows="4" className={`w-full p-4 rounded-xl border outline-none text-sm font-bold ${isDark ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-slate-50 border-slate-200 text-slate-900 placeholder-slate-400'}`}></textarea>
+              
+              {result && (
+                <div className={`p-4 rounded-xl border ${isDark ? 'bg-indigo-900/30 border-indigo-500/50 text-indigo-100' : 'bg-indigo-50 border-indigo-200 text-indigo-900'}`}>
+                  <h4 className="font-bold text-lg mb-2">Score: {result.score}/10</h4>
+                  <p className="text-sm mb-2 opacity-90"><strong>Feedback:</strong> {result.feedback}</p>
+                  <p className="text-sm mb-2 opacity-90"><strong>Hook:</strong> {result.hook_analysis}</p>
+                  <p className="text-sm mb-2 opacity-90"><strong>Caption:</strong> {result.caption_analysis}</p>
+                  <div className="text-sm mt-2">
+                    <strong className="opacity-90">Improvements:</strong>
+                    <ul className="list-disc pl-5 mt-1 opacity-80">
+                      {result.improvements?.map((imp, i) => <li key={i}>{imp}</li>)}
+                    </ul>
+                  </div>
+                </div>
+              )}
+
+              <button onClick={handleAudit} disabled={isAuditing} className={`w-full py-4 rounded-xl font-black text-white transition ${isAuditing ? 'bg-slate-500 cursor-not-allowed' : 'bg-gradient-to-r from-teal-500 to-blue-600 hover:scale-[1.02] shadow-xl shadow-teal-500/20'}`}>
+                {isAuditing ? '⏳ AUDITING...' : '✨ AUDIT NOW'}
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    };
+
+    const FloatingAgent = ({ isDark, contextData }) => {
+      const [open, setOpen] = useState(false);
+      const [messages, setMessages] = useState([{role: 'agent', text: 'Hi! I am the SOSBOARD AI Agent. Ask me anything about your performance.'}]);
+      const [input, setInput] = useState('');
+      const [isTyping, setIsTyping] = useState(false);
+      const messagesEndRef = useRef(null);
+
+      useEffect(() => {
+        if(messagesEndRef.current) messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+      }, [messages, isTyping, open]);
+
+      const handleSend = () => {
+        if (!input.trim()) return;
+        const userMsg = {role: 'user', text: input};
+        setMessages(prev => [...prev, userMsg]);
+        setInput('');
+        setIsTyping(true);
+
+        if (typeof google !== 'undefined' && google.script) {
+          google.script.run
+            .withSuccessHandler((res) => {
+              setIsTyping(false);
+              setMessages(prev => [...prev, {role: 'agent', text: res.answer || "Error"}]);
+            })
+            .withFailureHandler((err) => {
+              setIsTyping(false);
+              setMessages(prev => [...prev, {role: 'agent', text: "Error: " + err}]);
+            })
+            .askAIAgent(userMsg.text, contextData);
+        } else {
+          setTimeout(() => {
+            setIsTyping(false);
+            setMessages(prev => [...prev, {role: 'agent', text: "I'm running in demo mode!"}]);
+          }, 1000);
+        }
+      };
+
+      return (
+        <div className="fixed bottom-6 right-6 z-[90]">
+          {open && (
+            <div className={`mb-4 w-[350px] h-[450px] rounded-3xl border shadow-2xl flex flex-col overflow-hidden animate-fade-in ${isDark ? 'bg-slate-900 border-slate-700' : 'bg-white border-slate-200'}`}>
+              <div className="p-4 bg-gradient-to-r from-indigo-600 to-blue-600 text-white font-black flex justify-between items-center">
+                <span className="flex items-center gap-2">🤖 SOSBOARD AI</span>
+                <button onClick={()=>setOpen(false)} className="hover:opacity-80 text-lg">✕</button>
+              </div>
+              <div className="flex-1 p-4 overflow-y-auto space-y-4">
+                {messages.map((msg, i) => (
+                  <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[85%] p-3 rounded-2xl text-sm font-medium ${msg.role === 'user' ? 'bg-indigo-500 text-white rounded-tr-sm shadow-md' : (isDark ? 'bg-slate-800 text-slate-200 rounded-tl-sm border border-slate-700' : 'bg-slate-100 text-slate-800 rounded-tl-sm border border-slate-200')}`}>
+                      {msg.text}
+                    </div>
+                  </div>
+                ))}
+                {isTyping && <div className={`text-xs italic ${isDark?'text-slate-500':'text-slate-400'}`}>Agent is typing...</div>}
+                <div ref={messagesEndRef} />
+              </div>
+              <div className={`p-4 border-t flex gap-2 ${isDark ? 'border-slate-800 bg-slate-900' : 'border-slate-200 bg-slate-50'}`}>
+                <input value={input} onChange={e=>setInput(e.target.value)} onKeyPress={e => e.key === 'Enter' && handleSend()} placeholder="Ask something..." className={`flex-1 px-4 py-2 rounded-xl outline-none text-sm font-bold border ${isDark ? 'bg-slate-800 border-slate-700 text-white placeholder-slate-500' : 'bg-white border-slate-200 text-slate-900'}`} />
+                <button onClick={handleSend} className="px-4 py-2 bg-indigo-500 hover:bg-indigo-600 text-white rounded-xl font-bold transition shadow-md">Send</button>
+              </div>
+            </div>
+          )}
+          {!open && (
+            <button onClick={()=>setOpen(true)} className="w-16 h-16 bg-gradient-to-r from-indigo-500 to-blue-600 rounded-full flex items-center justify-center text-2xl shadow-lg shadow-indigo-500/30 hover:scale-110 transition text-white">💬</button>
+          )}
+        </div>
+      );
+    };
+
     // --- MAIN COMPONENT ---
     function App() {
-      const [isDark, setIsDark] = useState(true);
+      const [isDark, setIsDark] = useState(() => {
+        try {
+          const saved = window.localStorage.getItem('joy_isDark');
+          if (saved !== null) return JSON.parse(saved);
+        } catch(e) {}
+        return true;
+      });
+      const [showAuditor, setShowAuditor] = useState(false);
       const [viewMode, setViewMode] = useState('frontend');
       const [data, setData] = useState([]);
       const [loading, setLoading] = useState(true);
@@ -2045,9 +2192,35 @@ Data reverted. Please try again or use Refresh.");
         return { pct: pct.toFixed(1), label, value: currentTotal };
       }, [allGrowthData, timeRange]);
 
+      const performanceAlert = useMemo(() => {
+        if (!data || data.length < 5) return null;
+        const sortedData = [...data].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        const latest = sortedData[sortedData.length - 1];
+        const prev4 = sortedData.slice(-5, -1);
+        const avgReach = prev4.reduce((acc, curr) => acc + curr.metrics.reach, 0) / 4;
+        
+        if (avgReach > 0 && latest.metrics.reach < avgReach * 0.8) {
+           const dropPct = ((avgReach - latest.metrics.reach) / avgReach * 100).toFixed(1);
+           return `🚨 Performance Alert: Total Reach dropped by ${dropPct}% compared to the 4-week average!`;
+        }
+        return null;
+      }, [data]);
+
+      const reachWoW = useMemo(() => {
+        if (!data || data.length < 2) return null;
+        const sortedData = [...data].sort((a, b) => new Date(a.startDate) - new Date(b.startDate));
+        const current = sortedData[sortedData.length - 1].metrics.reach;
+        const previous = sortedData[sortedData.length - 2].metrics.reach;
+        if (previous === 0) return '+100% vs last week';
+        const pct = ((current - previous) / previous) * 100;
+        return `${pct > 0 ? '↑ +' : '↓ '}${pct.toFixed(1)}% vs last week`;
+      }, [data]);
+
       const toggleTheme = () => {
-        setIsDark(!isDark);
-        document.documentElement.classList.toggle('dark', !isDark);
+        const next = !isDark;
+        setIsDark(next);
+        document.documentElement.classList.toggle('dark', next);
+        try { window.localStorage.setItem('joy_isDark', JSON.stringify(next)); } catch(e) {}
       };
 
       if (loading) {
@@ -2083,14 +2256,22 @@ Data reverted. Please try again or use Refresh.");
 
       return (
         <div className={`min-h-screen font-sans transition-colors duration-300 ${isDark ? 'bg-slate-900 text-slate-100' : 'bg-slate-50 text-slate-900'}`}>
+          <FloatingAgent isDark={isDark} contextData={filteredData} />
+          {showAuditor && <ContentAuditorModal isDark={isDark} onClose={() => setShowAuditor(false)} />}
           <ExportModal isOpen={showExport} onClose={() => setShowExport(false)} isDark={isDark} allData={data} currentTimeRange={timeRange} onTimeRangeChange={setTimeRange} />
           <ComparisonModal isOpen={showComparison} onClose={() => setShowComparison(false)} data={data} isDark={isDark} />
+
+          {performanceAlert && (
+            <div className="bg-red-500 text-white text-center py-2 px-4 text-sm font-bold animate-pulse">
+              {performanceAlert}
+            </div>
+          )}
 
           <header className={`px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 pt-6 md:pt-8 pb-4 flex flex-col md:flex-row justify-between items-end border-b ${isDark ? 'border-slate-800' : 'border-slate-200'}`}>
             <div className="mb-4 md:mb-0">
               <div className="flex items-center gap-3 mb-1">
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center shadow-lg shadow-teal-500/20 ${isDark ? 'bg-teal-500 text-black' : 'bg-blue-600 text-white'}`}><span className="font-bold text-xl">J</span></div>
-                <h1 className="text-2xl font-bold tracking-tight">JOY SOCIAL MEDIA DASHBOARD</h1>
+                <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">JOY SOCIAL MEDIA DASHBOARD {typeof google === 'undefined' && <span className="bg-red-500 text-white text-xs px-2 py-0.5 rounded">DEMO</span>}</h1>
               </div>
               <p className={`text-sm ${isDark ? 'text-slate-400' : 'text-slate-500'} ml-1`}>Exclusive Monitoring Content Dashboard for SMS-JOY</p>
             </div>
@@ -2108,6 +2289,7 @@ Data reverted. Please try again or use Refresh.");
                   <option value="last_1_year">Last 1 Year</option>
                 </select>
               </div>
+              <button onClick={() => setShowAuditor(true)} className={`p-2.5 rounded-xl border flex items-center gap-2 text-sm font-bold transition hover:bg-opacity-80 ${isDark ? 'bg-emerald-500/20 border-emerald-500/50 text-emerald-400' : 'bg-emerald-50 border-emerald-200 text-emerald-600'}`}>🤖 Auditor</button>
               <button onClick={() => setShowComparison(true)} className={`p-2.5 rounded-xl border flex items-center gap-2 text-sm font-bold transition hover:bg-opacity-80 ${isDark ? 'bg-indigo-500/20 border-indigo-500/50 text-indigo-400' : 'bg-indigo-50 border-indigo-200 text-indigo-600'}`}>🔄 Comparison</button>
               <button onClick={() => setShowExport(true)} className={`p-2.5 rounded-xl border flex items-center gap-2 text-sm font-bold transition hover:bg-opacity-80 ${isDark ? 'bg-red-500/20 border-red-500/50 text-red-400' : 'bg-red-50 border-red-200 text-red-600'}`}>⬇️ Export</button>
               <button onClick={() => setViewMode('growth')} className={`p-2.5 rounded-xl border flex items-center gap-2 text-sm font-bold transition hover:bg-opacity-80 ${isDark ? 'bg-cyan-500/20 border-cyan-500/50 text-cyan-400' : 'bg-cyan-50 border-cyan-200 text-cyan-600'}`}>📈 Growth</button>
@@ -2119,7 +2301,7 @@ Data reverted. Please try again or use Refresh.");
           <main className="px-4 sm:px-6 md:px-8 lg:px-12 xl:px-16 py-6 md:py-8 max-w-[1600px] mx-auto space-y-6 md:space-y-8">
             <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
               <div className="lg:col-span-3 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <MetricCard title="Total Reach" value={formatNumber(metrics.reach)} subValue={`Period: ${timeRange.replace(/_/g, ' ')}`} iconName="Users" color="blue" isDark={isDark} emoji="👥" />
+                <MetricCard title="Total Reach" value={formatNumber(metrics.reach)} subValue={reachWoW || `Period: ${timeRange.replace(/_/g, ' ')}`} iconName="Users" color="blue" isDark={isDark} emoji="👥" />
                 <MetricCard title="Total Views" value={formatNumber(metrics.views)} subValue="All Channels" iconName="Eye" color="purple" isDark={isDark} emoji="👁️" />
                 <MetricCard title="Avg. Eng. Rate" value={`${metrics.er}%`} subValue="Based on Followers" iconName="TrendingUp" color="green" isDark={isDark} emoji="📈" />
                 <MetricCard title="Followers Growth Trend" value={`${followerGrowth.pct > 0 ? '+' : ''}${followerGrowth.pct}%`} subValue={followerGrowth.label} iconName="Users" color="orange" isDark={isDark} emoji="📊" />

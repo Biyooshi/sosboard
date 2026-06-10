@@ -9,6 +9,8 @@ const GROWTH_SHEET_NAME = 'Growth_JOY';
 
 // SPREADSHEET ID - Target spreadsheet untuk data dummy
 const TARGET_SPREADSHEET_ID = '1NA0kJyEypr25RwqeNjM_B5iLIdH4OEDLh3qU6GwHg_c';
+// API Key loaded from Script Properties (to prevent public exposure on GitHub)
+const GEMINI_API_KEY = PropertiesService.getScriptProperties().getProperty('GEMINI_API_KEY');
 
 function doGet() {
   return HtmlService.createTemplateFromFile('index')
@@ -77,11 +79,6 @@ function getWeeklyData() {
         Logger.log("❌ [getWeeklyData] Auto-population failed: " + seedError.toString());
         return [];
       }
-    }
-    
-    if (lastRow <= 1) {
-      Logger.log("ℹ️ [getWeeklyData] No data rows found (only header)");
-      return [];
     }
     
     const numRows = lastRow - 1; 
@@ -423,8 +420,8 @@ function saveTargets(monthlyTargets) {
 }
 
 function createPdfReport() {
-  const ss = SpreadsheetApp.getActiveSpreadsheet();
-  const ssId = ss.getId();
+  const ss = SpreadsheetApp.openById(TARGET_SPREADSHEET_ID);
+  const ssId = TARGET_SPREADSHEET_ID;
   const sheet = ss.getSheetByName(DB_SHEET_NAME);
   if (!sheet) throw new Error("Database sheet not found");
   
@@ -548,24 +545,87 @@ function saveGrowthDataToTargetSpreadsheet(targetSS, growthData) {
   } catch (e) { throw e; }
 }
 
-function importDummyDataToTargetSpreadsheet() {
-  return "Not Implemented";
+// --- AI FEATURES (GEMINI API) ---
+
+function callGeminiAPI(prompt) {
+  if (!GEMINI_API_KEY) return { error: "API Key not found" };
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${GEMINI_API_KEY}`;
+  const payload = {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: { temperature: 0.7 }
+  };
+  const options = {
+    method: "post",
+    contentType: "application/json",
+    payload: JSON.stringify(payload),
+    muteHttpExceptions: true
+  };
+  try {
+    const response = UrlFetchApp.fetch(url, options);
+    const json = JSON.parse(response.getContentText());
+    if (json.error) return { error: json.error.message };
+    const text = json.candidates[0].content.parts[0].text;
+    return { success: true, text: text };
+  } catch (e) {
+    return { error: e.toString() };
+  }
 }
 
-function importDummyData() {
-  return "Not Implemented";
+function generateAIInsight(weeklyData) {
+  if (!weeklyData || weeklyData.length === 0) return { success: false, data: null };
+  const recentData = weeklyData.slice(-4);
+  const prompt = `You are a social media expert analyzing the following weekly performance data for the last ${recentData.length} weeks.
+Data: ${JSON.stringify(recentData)}
+Provide an analysis in JSON format exactly like this:
+{
+  "summary": "Brief overall performance summary.",
+  "win_pattern": "What type of content is winning right now?",
+  "avoid": "What to avoid based on losing content?",
+  "recommendations": ["Rec 1", "Rec 2"]
+}
+Return ONLY valid JSON.`;
+  const result = callGeminiAPI(prompt);
+  if (result.error) return { success: false, error: result.error };
+  try {
+    let rawStr = result.text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return { success: true, data: JSON.parse(rawStr) };
+  } catch (e) {
+    return { success: false, error: "Failed to parse JSON" };
+  }
 }
 
-function saveDummyMonthlyTargets() {
-  return saveDummyMonthlyTargets4Months();
+function auditContent(hook, caption) {
+  const prompt = `You are an expert social media copywriter.
+Please audit the following content draft:
+Hook/Title: ${hook}
+Caption: ${caption}
+Provide an audit in JSON format exactly like this:
+{
+  "score": 8,
+  "feedback": "Your overall feedback.",
+  "hook_analysis": "Feedback on hook.",
+  "caption_analysis": "Feedback on caption clarity and CTA.",
+  "improvements": ["Idea 1", "Idea 2"]
+}
+Return ONLY valid JSON.`;
+  const result = callGeminiAPI(prompt);
+  if (result.error) return { success: false, error: result.error };
+  try {
+    let rawStr = result.text.replace(/```json/g, "").replace(/```/g, "").trim();
+    return { success: true, data: JSON.parse(rawStr) };
+  } catch (e) {
+    return { success: false, error: "Failed to parse JSON" };
+  }
 }
 
-function saveDummyMonthlyTargets4Months() {
-  return "Success";
-}
-
-function saveMonthlyTargetsToTargetSpreadsheet(targetSS) {
-  return "Success";
+function askAIAgent(question, contextData) {
+  const prompt = `You are an AI assistant for a social media dashboard.
+Context Data: ${JSON.stringify(contextData)}
+User Question: ${question}
+Provide a short, helpful, and insightful answer based on the data provided. Answer directly without JSON formatting.`;
+  const result = callGeminiAPI(prompt);
+  if (result.error) return { success: false, answer: "Sorry, I encountered an error: " + result.error };
+  return { success: true, answer: result.text };
 }
 
 function getDummyGrowthData4Months() {
